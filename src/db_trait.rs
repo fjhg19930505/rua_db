@@ -1,10 +1,8 @@
-use crate::{NetMsg, NetResult};
+use rua_net_mgr::{NetMsg, NetResult};
 
 pub trait DbTrait {
     fn select(&mut self, sql_cmd: &str, msg: &mut NetMsg) -> NetResult<i32>;
-
     fn execute(&mut self, sql_cmd: &str) -> NetResult<i32>;
-
     fn insert(&mut self, sql_cmd: &str, msg: &mut NetMsg) -> NetResult<i32>;
     fn begin_transaction(&mut self) -> NetResult<i32>;
     fn commit_transaction(&mut self) -> NetResult<i32>;

@@ -7,3 +7,6 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+rua_net_mgr = { git = "https://github.com/fjhg19930505/rua_net_mgr.git" }
+rua_value_list = { git = "https://github.com/fjhg19930505/rua_value_list.git" }
+mysql = "18.2.0"
