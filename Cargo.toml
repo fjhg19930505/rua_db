@@ -10,3 +10,4 @@ edition = "2018"
 rua_net_mgr = { git = "https://github.com/fjhg19930505/rua_net_mgr.git" }
 rua_value_list = { git = "https://github.com/fjhg19930505/rua_value_list.git" }
 mysql = "18.2.0"
+rusqlite = "0.23.1"

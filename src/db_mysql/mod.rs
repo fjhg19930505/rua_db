@@ -7,6 +7,10 @@ use rua_net_mgr::{NetMsg, NetResult, NetConfig};
 use mysql::prelude::Queryable;
 use std::collections::HashMap;
 use rua_value_list::{ValueType, ObjId, Put};
+use std::ops::Add;
+
+static DB_RESULT_PROTO: &'static str = "msg_db_result";
+static LAST_INSERT_ID: &'static str = "sys_last_insert_id";
 
 pub struct DbMysql {
     pub conn: MysqlConn,
@@ -184,46 +188,103 @@ impl DbTrait for DbMysql {
     }
 
     fn execute(&mut self, sql_cmd: &str) -> NetResult<i32> {
-        unimplemented!()
+        self.check_connect()?;
+        let value = self.conn.query_iter(sql_cmd);
+        let mut success: i32 = 0;
+        match value {
+            Ok(val) => {
+                self.last_insert_id = val.last_insert_id().unwrap();
+                self.affected_rows = val.affected_rows();
+                self.error = None;
+            }
+
+            Err(val) => {
+                match val {
+                    mysql::Error::MySqlError(ref val) => success = val.code as i32,
+                    _ => success = -1,
+                }
+                self.error = Some(val);
+            }
+        }
+        Ok(success)
     }
 
-    fn insert(&mut self, sql_cmd: &str, msg: &mut _) -> _ {
-        unimplemented!()
+    fn insert(&mut self, sql_cmd: &str, msg: &mut NetMsg) -> NetResult<i32> {
+        self.check_connect()?;
+        let value = self.conn.query_iter(sql_cmd);
+        let config = NetConfig::instance();
+        let mut success: i32 = 0;
+        match value {
+            Ok(val) => {
+                self.last_insert_id = val.last_insert_id().unwrap();
+                self.affected_rows = val.affected_rows();
+                let mut array = vec![];
+                let mut hash = HashMap::<String, Value>::new();
+                hash.insert(LAST_INSERT_ID.to_string(), Value::from(self.last_insert_id as u32));
+                array.push(Value::from(hash));
+                msg.get_var_list().put(DB_RESULT_PROTO.to_string()).put(self.last_insert_id as u32);
+                self.error = None;
+            }
+            Err(val) => {
+                match val {
+                    mysql::Error::MySqlError(ref val) => success = val.code as i32,
+                    _ => success = -1,
+                }
+                self.error = Some(val);
+            }
+        }
+        Ok(success)
     }
 
-    fn begin_transaction(&mut self) -> _ {
-        unimplemented!()
+    fn begin_transaction(&mut self) -> NetResult<i32> {
+        self.execute("START TRANSACTION")
     }
 
-    fn commit_transaction(&mut self) -> _ {
-        unimplemented!()
+    fn commit_transaction(&mut self) -> NetResult<i32> {
+        self.execute("COMMIT")
     }
 
-    fn rollback_transaction(&mut self) -> _ {
-        unimplemented!()
+    fn rollback_transaction(&mut self) -> NetResult<i32> {
+        self.execute("ROLLBACK")
     }
 
     fn get_last_insert_id(&mut self) -> u64 {
-        unimplemented!()
+        self.last_insert_id
     }
 
     fn get_affected_rows(&mut self) -> u64 {
-        unimplemented!()
+        self.affected_rows
     }
 
     fn get_character_set(&mut self) -> u8 {
-        unimplemented!()
+        0u8
     }
 
     fn is_connected(&self) -> bool {
-        unimplemented!()
+        false
     }
 
     fn get_error_code(&mut self) -> i32 {
-        unimplemented!()
+        match self.error {
+            Some(ref err) => {
+                match *err {
+                    mysql::Error::MySqlError(ref val) => val as i32,
+                    _ => -1,
+                }
+            }
+            None => 0,
+        }
     }
 
     fn get_error_str(&mut self) -> Option<String> {
-        unimplemented!()
+        match self.error {
+            Some(ref err) => {
+                match *err {
+                    mysql::Error::MySqlError(ref val) => Some(val.message.clone()),
+                    _ => Some(format!("{}", err)),
+                }
+            }
+            None => None,
+        }
     }
 }
