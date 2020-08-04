@@ -8,3 +8,9 @@ macro_rules! unwrap_or {
         }
     )
 }
+
+macro_rules! fail {
+    ($expr:expr) => (
+        return Err(::std::convert::From::from($expr));
+    )
+}

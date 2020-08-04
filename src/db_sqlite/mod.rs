@@ -1,5 +1,5 @@
 use rusqlite;
-use rusqlite::Connection;
+use rusqlite::{Connection, NO_PARAMS};
 use crate::db_trait::DbTrait;
 use rua_net_mgr::{NetMsg, NetResult, NetConfig};
 
@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use rusqlite::types::Value;
 
 use rua_value_list;
-use rua_value_list::{ValueType, VarList, Put};
+use rua_value_list::{ValueType, Put, ErrorKind};
 
 static DB_RESULT_PROTO: &'static str = "msg_db_result";
 static LAST_INSERT_ID: &'static str = "sys_last_insert_id";
@@ -23,7 +23,7 @@ pub struct DbSqlite {
 }
 
 impl DbSqlite {
-    fn new() -> DbSqlite {
+    fn new(conn: Connection) -> DbSqlite {
         DbSqlite {
             conn,
             last_insert_id: 0,
@@ -64,67 +64,65 @@ impl DbTrait for DbSqlite {
             }
         }
 
-        match statement.query(&[]) {
+        match statement.query(NO_PARAMS) {
             Ok(mut rows) => {
                 self.error = None;
-                while let Some(row) = rows.next() {
-                    let row = unwrap_or!(row.ok(), continue);
-                    let mut hash = HashMap::<String, Value>::new();
-
+                while let Ok(row) = rows.next() {
+                    let row = unwrap_or!(row, continue);
                     for i in 0..row.column_count() {
                         let column_name = &column_names[i as usize];
                         let field = unwrap_or!(config.get_field_by_name(column_name), continue);
                         match rua_value_list::get_type_by_name(&*field.pattern) {
                             ValueType::ValueTypeU8 => {
-                                let value = unwrap_or!(row.get_checked::<_, i32>(i).ok(), continue) as u8;
+                                let value = unwrap_or!(row.get::<_, i32>(i).ok(), continue) as u8;
                                 msg.get_var_list().put(column_name.clone()).put(value);
                             }
                             ValueType::ValueTypeI8 => {
-                                let value = unwrap_or!(row.get_checked::<_, i32>(i).ok(), continue) as i8;
+                                let value = unwrap_or!(row.get::<_, i32>(i).ok(), continue) as i8;
                                 msg.get_var_list().put(column_name.clone()).put(value);
                             }
                             ValueType::ValueTypeU16 => {
-                                let value = unwrap_or!(row.get_checked::<_, i32>(i).ok(), continue) as u16;
+                                let value = unwrap_or!(row.get::<_, i32>(i).ok(), continue) as u16;
                                 msg.get_var_list().put(column_name.clone()).put(value);
                             }
                             ValueType::ValueTypeI16 => {
-                                let value = unwrap_or!(row.get_checked::<_, i32>(i).ok(), continue) as i16;
+                                let value = unwrap_or!(row.get::<_, i32>(i).ok(), continue) as i16;
                                 msg.get_var_list().put(column_name.clone()).put(value);
                             }
                             ValueType::ValueTypeU32 => {
-                                let value = unwrap_or!(row.get_checked::<_, u32>(i).ok(), continue) as u32;
+                                let value = unwrap_or!(row.get::<_, i32>(i).ok(), continue) as u32;
                                 msg.get_var_list().put(column_name.clone()).put(value);
                             }
                             ValueType::ValueTypeI32 => {
-                                let value = unwrap_or!(row.get_checked::<_, i32>(i).ok(), continue) as i32;
+                                let value = unwrap_or!(row.get::<_, i32>(i).ok(), continue) as i32;
                                 msg.get_var_list().put(column_name.clone()).put(value);
                             }
                             ValueType::ValueTypeU64 => {
-                                let value = unwrap_or!(row.get_checked::<_, u64>(i).ok(), continue) as u64;
+                                let value = unwrap_or!(row.get::<_, i32>(i).ok(), continue) as u64;
                                 msg.get_var_list().put(column_name.clone()).put(value);
                             }
                             ValueType::ValueTypeI64 => {
-                                let value = unwrap_or!(row.get_checked::<_, i64>(i).ok(), continue) as i64;
+                                let value = unwrap_or!(row.get::<_, i32>(i).ok(), continue) as i64;
                                 msg.get_var_list().put(column_name.clone()).put(value);
                             }
                             ValueType::ValueTypeU128 => {
-                                let value = unwrap_or!(row.get_checked::<_, u128>(i).ok(), continue) as u128;
+                                let value = unwrap_or!(row.get::<_, i32>(i).ok(), continue) as u128;
                                 msg.get_var_list().put(column_name.clone()).put(value);
                             }
                             ValueType::ValueTypeI128 => {
-                                let value = unwrap_or!(row.get_checked::<_, i128>(i).ok(), continue) as i128;
+                                let value = unwrap_or!(row.get::<_, i32>(i).ok(), continue) as i128;
                                 msg.get_var_list().put(column_name.clone()).put(value);
                             }
                             ValueType::ValueTypeF32 => {
-                                let value = unwrap_or!(row.get_checked::<_, f32>(i).ok(), continue) as f32;
+                                let value = unwrap_or!(row.get::<_, f64>(i).ok(), continue) as f32;
                                 msg.get_var_list().put(column_name.clone()).put(value);
                             }
                             ValueType::ValueTypeF64 => {
-                                let value = unwrap_or!(row.get_checked::<_, f64>(i).ok(), continue) as f64;
+                                let value = unwrap_or!(row.get::<_, f64>(i).ok(), continue) as f64;
                                 msg.get_var_list().put(column_name.clone()).put(value);
                             }
                             ValueType::ValueTypeStr => {
-                                let value: String = unwrap_or!(row.get_checked::<_, String>(i).ok(), continue);
+                                let value: String = unwrap_or!(row.get::<_, String>(i).ok(), continue);
                                 msg.get_var_list().put(column_name.clone()).put(value);
                             }
                             _ => continue,
@@ -149,7 +147,7 @@ impl DbTrait for DbSqlite {
     fn execute(&mut self, sql_cmd: &str) -> NetResult<i32> {
         self.check_connect()?;
         let mut success = 0;
-        match self.conn.execute(sql_cmd, &[]) {
+        match self.conn.execute(sql_cmd, NO_PARAMS) {
             Err(err) => {
                 match &err {
                     &rusqlite::Error::SqliteFailure(err, _) => success = err.extended_code,
@@ -167,11 +165,11 @@ impl DbTrait for DbSqlite {
 
     fn insert(&mut self, sql_cmd: &str, msg: &mut NetMsg) -> NetResult<i32> {
         self.check_connect()?;
-        let value = self.conn.execute(sql_cmd, &[]);
+        let value = self.conn.execute(sql_cmd, NO_PARAMS);
         let mut success: i32 = 0;
         match value {
             Ok(_) => {
-                msg.get_var_list().put(&DB_RESULT_PROTO.to_string()).put(self.last_insert_id as u32);
+                msg.get_var_list().put(DB_RESULT_PROTO.to_string()).put(self.last_insert_id as u32);
                 self.error = None;
             }
             Err(val) => {

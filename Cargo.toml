@@ -11,3 +11,6 @@ rua_net_mgr = { git = "https://github.com/fjhg19930505/rua_net_mgr.git" }
 rua_value_list = { git = "https://github.com/fjhg19930505/rua_value_list.git" }
 mysql = "18.2.0"
 rusqlite = "0.23.1"
+num-traits = "0.2.12"
+time = "0.2.16"
+url = "2.1.1"
